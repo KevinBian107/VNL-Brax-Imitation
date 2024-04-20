@@ -13,8 +13,8 @@ import numpy as np
 
 import os
 
-# _XML_PATH = "./models/rodent_0.xml"
-_XML_PATH = "./models/rodent_optimized.xml"
+
+_XML_PATH = "rodent.xml"
 
 class Rodent(PipelineEnv):
 
@@ -33,10 +33,6 @@ class Rodent(PipelineEnv):
       vision = False,
       **kwargs,
   ):
-    # Load the rodent model via dm_control
-    # dm_rodent = rodent.Rodent()
-    # physics = mjcf_dm.Physics.from_mjcf_model(dm_rodent.mjcf_model)
-    # mj_model = physics.model.ptr
     os.environ["MUJOCO_GL"] = "osmesa"
     mj_model = mujoco.MjModel.from_xml_path(_XML_PATH)
     mj_model.opt.solver = {

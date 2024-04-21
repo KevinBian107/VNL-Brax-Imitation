@@ -2,7 +2,6 @@ import dataclasses
 from typing import Any, Callable, Sequence, Tuple
 from brax.training import types
 from brax.training.spectral_norm import SNDense
-from flax import linen
 import jax
 import jax.numpy as jnp
 from jax import random

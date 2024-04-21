@@ -7,7 +7,7 @@ from brax import envs
 from brax.training.agents.ppo import train as ppo
 from brax.io import model
 
-from Rodent_Env_Brax import Rodent
+from BaseRodentEnv import Rodent
 
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning) 

@@ -25,7 +25,7 @@ class FeedForwardNetwork:
   apply: Callable[..., Any]
 
 class Decoder(nn.Module):
-    '''DEcoder for VAE'''
+    '''Decoder for VAE'''
     layer_sizes: Sequence[int]
     activation: ActivationFn = nn.tanh
     kernel_init: Initializer = jax.nn.initializers.lecun_uniform()
@@ -70,8 +70,7 @@ class Encoder(nn.Module):
         return mean_x, logvar_x
 
 class VAE(nn.Module):
-  """Full VAE model."""
-
+  """Full VAE Model."""
   encoder_layers: Sequence[int]
   decoder_layers: Sequence[int]
   latents: int = 60
@@ -87,11 +86,13 @@ class VAE(nn.Module):
     mean, logvar = self.encoder(traj, e_rng)
     z = reparameterize(z_rng, mean, logvar)
     action = self.decoder(z.cat(state))
+    
     return action, mean, logvar
 
   def generate(self, z):
     return self.decoder(z) + noise
   
+
 def make_policy_vae(
     param_size: int,
     latent_size: int,
@@ -101,7 +102,7 @@ def make_policy_vae(
     encoder_layer_sizes: Sequence[int] = (1024, 1024),
     decoder_layer_sizes: Sequence[int] = (1024),
     ) -> VAE:
-  """Creates a policy VAE network."""
+  """Creates a Policy VAE Network."""
   
   policy_module = VAE(
       encoder_layers=list(encoder_layer_sizes) + [latent_size],
@@ -116,13 +117,14 @@ def make_policy_vae(
   return FeedForwardNetwork(
       init=lambda key: policy_module.init(key, dummy_obs), apply=apply)
 
+
 def make_value_network(
     obs_size: int,
     preprocess_observations_fn: types.PreprocessObservationFn = types
     .identity_observation_preprocessor,
     hidden_layer_sizes: Sequence[int] = (256, 256),
     activation: ActivationFn = nn.relu) -> FeedForwardNetwork:
-  """Creates a value network, like normal ones"""
+  """Creates a Value Network (like normal ones)"""
 
   value_module = MLP(
       layer_sizes=list(hidden_layer_sizes) + [1],
@@ -137,28 +139,23 @@ def make_value_network(
   return FeedForwardNetwork(
       init=lambda key: value_module.init(key, dummy_obs), apply=apply)
 
-class MLP_CNN(linen.Module):
+class MLP_CNN(nn.Module):
   '''Simple MLP CNN Network for reference'''
   layer_sizes: Sequence[int]
-  activation: ActivationFn = linen.relu
+  activation: ActivationFn = nn.relu
   kernel_init: Initializer = jax.nn.initializers.lecun_uniform()
   activate_final: bool = False
   bias: bool = True
 
-  @linen.compact
+  @nn.compact
   def __call__(self, data: jnp.ndarray):
-    #print(data.shape) # initial should all be zero
-
-    # two dimension matrix slicing
-    vision_data = data[...,data.shape[-1]-12288:] #just vision, ant have 27, rodent have more, change automatically with getting image of 12288
-    pro_data = data[...,:data.shape[-1]-12288] #just proprioception
+    # initial should all be zero
+    # two dimension matrix slicing, change automatically with getting image of 12288
+    vision_data = data[...,data.shape[-1]-12288:]
+    pro_data = data[...,:data.shape[-1]-12288]
 
     dtype = jnp.float32
     vision_data = vision_data.astype(dtype) / 255.0
-    #print(vision_data.shape)
-
-    # vmap_size = -1 # automatically infered size #vision_data.shape[0]
-    # vision_data = vision_data.reshape((vmap_size, 240, 320, 3)) # reshape back to 3d image with vmap considered
 
     #handling dynamic new shape issues
     #avoid error in case of 1 d as well, add anything that is not the [-1] position, extract all dimensions except the last one
@@ -167,35 +164,32 @@ class MLP_CNN(linen.Module):
     vision_data = vision_data.reshape(new_shape)
     print(f'Before into ConvNet + vmap shape: {vision_data.shape}')
 
-    vision_data = linen.Conv(features=32,
+    vision_data = nn.Conv(features=32,
                       kernel_size=(8, 8),
                       strides=(4, 4),
                       name='conv1',
                       dtype=dtype,
                       )(vision_data)
-    vision_data = linen.relu(vision_data)
-    vision_data = linen.Conv(features=64,
+    vision_data = nn.relu(vision_data)
+    vision_data = nn.Conv(features=64,
                       kernel_size=(4, 4),
                       strides=(2, 2),
                       name='conv2',
                       dtype=dtype,
                       )(vision_data)
-    vision_data = linen.relu(vision_data)
-    vision_data = linen.Conv(features=64,
+    vision_data = nn.relu(vision_data)
+    vision_data = nn.Conv(features=64,
                       kernel_size=(3, 3),
                       strides=(1, 1),
                       name='conv3',
                       dtype=dtype,
                       )(vision_data)
-    vision_data = linen.relu(vision_data)
-    
-    # flatten preserving expected dimension of 76800, then fit automaticall
-    # vision_data = vision_data.reshape((-1, 76800))
+    vision_data = nn.relu(vision_data)
 
     # fully connected layer
-    vision_data = linen.Dense(features=512, name='hidden', dtype=dtype)(vision_data)
-    vision_data = linen.relu(vision_data)
-    vision_out = linen.Dense(features=1, name='logits', dtype=dtype)(vision_data) # this is (2560, 1)
+    vision_data = nn.Dense(features=512, name='hidden', dtype=dtype)(vision_data)
+    vision_data = nn.relu(vision_data)
+    vision_out = nn.Dense(features=1, name='logits', dtype=dtype)(vision_data) # this is (2560, 1)
     print(f'This is out of CovNet {vision_out.shape}')
 
     # handling dynamic new shape issues
@@ -206,11 +200,7 @@ class MLP_CNN(linen.Module):
     hidden = jnp.concatenate([pro_data, vision_out], axis=-1)
 
     for i, hidden_size in enumerate(self.layer_sizes):
-      # print(f'hidden_unit_size:{hidden_size}')
-      # print(f'hidden_input_size:{hidden.shape}')    
-      # hidden size is a integer [hidden_layer_size, parameter size (which is a NormalTanhDistribution)]
-
-      hidden = linen.Dense(
+      hidden = nn.Dense(
           hidden_size,
           name=f'hidden_{i}',
           kernel_init=self.kernel_init,
@@ -220,5 +210,4 @@ class MLP_CNN(linen.Module):
         hidden = self.activation(hidden)
       
     print(f'this is out of full ppo network {hidden.shape}')
-
     return hidden

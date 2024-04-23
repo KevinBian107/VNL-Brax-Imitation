@@ -75,25 +75,30 @@ class Rodent(PipelineEnv):
     """Resets the environment to an initial state."""
     rng, rng1, rng2, rng3 = jax.random.split(rng, 4)
 
-    low, hi = -self._reset_noise_scale, self._reset_noise_scale
-    qpos = self.sys.qpos0 + jax.random.uniform(
-        rng1, (self.sys.nq,), minval=low, maxval=hi
-    )
-    qvel = jax.random.uniform(
-        rng2, (self.sys.nv,), minval=low, maxval=hi
-    )
+    # low, hi = -self._reset_noise_scale, self._reset_noise_scale
+    # qpos = self.sys.qpos0 + jax.random.uniform(
+    #     rng1, (self.sys.nq,), minval=low, maxval=hi
+    # )
+    # qvel = jax.random.uniform(
+    #     rng2, (self.sys.nv,), minval=low, maxval=hi
+    # )
 
     # assuming STAC data here, this must be static!
-    traj = {'qpos':jp.arange(5 * 74), 'qvel':jp.arange(5 * 74)}
-    max_start_index = len(traj['qpos']) - 74
-    start_index = jax.random.randint(rng3, (1,), 0, max_start_index)[0]
-    sliced_qpos = traj['qpos'][start_index:start_index + 74]
-    sliced_qvel = traj['qvel'][start_index:start_index + 74]
-    sliced_traj = {'qpos': sliced_qpos, 'qvel': sliced_qvel}
+    frame = jp.arange(250)
+    clip_frame = 5
+    frame_length = 250
 
-    # qpos should be one 74 length jp.array here, what is 150 frame moving window?
-    # qpos = sliced_traj['qpos']
-    # qvel = sliced_traj['qvel']
+    traj = {'qpos':jp.arange(clip_frame * self.sys.nq * frame_length),
+            'qvel':jp.arange(clip_frame * self.sys.nv * frame_length)}
+    
+    random_frame = jax.random.randint(rng3,(1,), 0, len(frame))[0]
+    # need to make sure slice index not excedding
+
+    # qpos should be one 74 length jp.array here and qvel with 73 length
+    qpos = jax.lax.dynamic_slice(traj['qpos'], [frame_length * random_frame], [self.sys.nq])
+    qvel = jax.lax.dynamic_slice(traj['qvel'], [frame_length * random_frame], [self.sys.nv])
+    
+    # print(qpos.shape, qvel.shape)
 
     data = self.pipeline_init(qpos, qvel)
 
